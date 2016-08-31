@@ -11,7 +11,7 @@ import time, sys
 
 # other iports
 import requests
-import re
+import re, json
 from lxml import html
 
 
@@ -36,7 +36,7 @@ class MessageLogger:
 class LogBot(irc.IRCClient):
 	"""A logging IRC bot."""
 	
-	nickname = "devbakobot"
+	nickname = "[devbakobot]"
 	
 	def connectionMade(self):
 		irc.IRCClient.connectionMade(self)
@@ -80,21 +80,36 @@ class LogBot(irc.IRCClient):
 			reply = u"모치!"
 
 		# Use dictionary 
-		if msg.startswith(u"!사전"):
-			reply = u"%s: 사전 준비 중!" % (user)
+		elif msg.startswith(u"!사전"):
+			url = 'https://glosbe.com/gapi/translate'
+			phrase = msg.split(' ')[1]
+			if len(phrase) == 0:
+				reply = u"%s: 단어를 입력해주세요. (사용법 : !사전 [단어])" % (user)
+			else :
+				params = { 'from': 'eng', 'dest': 'kor', 'format': 'json', 'phrase': phrase }
+				res = requests.get(url, params)
+				j = json.loads(res.content)
+				if j['result'] != 'ok' or len(j['tuc']) == 0:
+					reply = u"%s: 찾을 수 없는 단어입니다: %s" % (user, phrase)
+				else :
+					reply = u"%s: %s" % (user, ', '.join(map(lambda x: x['text'], filter(lambda x: x, map(lambda x: x.get('phrase'), j['tuc'])))))
+			if len(reply) > 512:
+				reply = reply[:509] + "..."
 
 		# Square number
-		try:
+		elif msg.isdigit():
 			reply = str(int(msg)**2)
-		except:
-			pass
 
 		# 삼겹살!
-		if u"밥" in msg and u"뭐" in msg and u"먹" in msg:
+		elif u"밥" in msg and u"뭐" in msg and u"먹" in msg:
 			reply = u"%s: 삼겹살!" % (user)
 
+		# 설레발 금지
+		elif u"설레발" in msg and msg.startswith(self.nickname):
+			reply = "%s " % (user) + u"설레발 금지 "*20
+
 		# Preview BOJ
-		if u"acmicpc.net/problem" in msg:
+		elif u"acmicpc.net/problem" in msg:
 			url = 'https://www.' + re.search('acmicpc.net/problem/[0-9]+', msg).group(0)
 			page = requests.get(url)
 			tree = html.fromstring(page.content)
@@ -104,11 +119,11 @@ class LogBot(irc.IRCClient):
 			if len(reply) > 512:
 				reply = reply[:509] + "..."
 			
-
 		# If I'm tagged
-		if msg.startswith(self.nickname + ":"):
+		elif msg.startswith(self.nickname + ":"):
 			reply = u"%s: :D" % user
 
+		# Marshall reply
 		if type(reply) != type(''):
 			reply = reply.encode('utf-8')
 		self.msg(channel, reply)
