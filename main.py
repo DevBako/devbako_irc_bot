@@ -86,8 +86,17 @@ class LogBot(irc.IRCClient):
 			if len(phrase) == 0:
 				reply = u"%s: 단어를 입력해주세요. (사용법 : !사전 [단어])" % (user)
 			else :
-				params = { 'from': 'eng', 'dest': 'kor', 'format': 'json', 'phrase': phrase }
-				res = requests.get(url, params)
+				phraes = phrase.lower()
+				iseng = True
+				for c in phrase:
+					if c not in 'qwertyuiopasdfghjklzxcvnm':
+						iseng = False
+						break
+				params = { 'format': 'json', 'phrase': phrase }
+				params['from'] = ('kor','eng')[iseng]
+				params['dest'] = ('kor','eng')[1-iseng]
+				print params
+				res = requests.get(url, params = params)
 				j = json.loads(res.content)
 				if j['result'] != 'ok' or len(j['tuc']) == 0:
 					reply = u"%s: 찾을 수 없는 단어입니다: %s" % (user, phrase)
