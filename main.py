@@ -13,6 +13,7 @@ import time, sys
 import requests
 import re, json
 from lxml import html
+import dictionary
 
 
 class MessageLogger:
@@ -95,13 +96,13 @@ class LogBot(irc.IRCClient):
 				params = { 'format': 'json', 'phrase': phrase }
 				params['from'] = ('kor','eng')[iseng]
 				params['dest'] = ('kor','eng')[1-iseng]
-				print params
 				res = requests.get(url, params = params)
 				j = json.loads(res.content)
-				if j['result'] != 'ok' or len(j['tuc']) == 0:
+				meanings = ', '.join(map(lambda x: x['text'], filter(lambda x: x, map(lambda x: x.get('phrase'), j['tuc']))))
+				if j['result'] != 'ok' or len(meanings) == 0:
 					reply = u"%s: 찾을 수 없는 단어입니다: %s" % (user, phrase)
 				else :
-					reply = u"%s: %s" % (user, ', '.join(map(lambda x: x['text'], filter(lambda x: x, map(lambda x: x.get('phrase'), j['tuc'])))))
+					reply = u"%s: %s" % (user, meanings)
 			if len(reply) > 512:
 				reply = reply[:509] + "..."
 
@@ -117,6 +118,10 @@ class LogBot(irc.IRCClient):
 		elif u"설레발" in msg and msg.startswith(self.nickname):
 			reply = "%s " % (user) + u"설레발 금지 "*20
 
+		# 고만해ㅋㅋㅋ
+		elif u"!고만해" in msg:
+			reply = u"%s 고만혀 고만혀 ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ" % (msg.split(' ')[1])
+
 		# Preview BOJ
 		elif u"acmicpc.net/problem" in msg:
 			url = 'https://www.' + re.search('acmicpc.net/problem/[0-9]+', msg).group(0)
@@ -127,7 +132,28 @@ class LogBot(irc.IRCClient):
 			reply = title + " : " + desc
 			if len(reply) > 512:
 				reply = reply[:509] + "..."
-			
+
+		# 가챠
+		elif u"가챠" in msg and u"후레" not in msg and user.lower() == 'shimika':
+			reply = u"%s : 175만원" % (user)
+
+		elif msg.startswith(u"!가챠"):
+			reply = u"%s : 175만원" % (msg.split(' ')[1])
+
+		# 단어 연관
+		elif msg.startswith(u"!단어 "):
+			word = msg.split(u' ',1)[1]
+			reply = u', '.join(dictionary.get_translations(word))
+	
+		elif msg.startswith(u"!단어추가 "):
+			words = dictionary.extract_arguments(msg.split(' ',1)[1])
+			if len(words) < 2:
+				reply = u"%s 단어 두 개를 입력하세요" % (user)
+			else:
+				x, y = words[0], words[1]
+				dictionary.add_translation(x, y)
+				reply = u"%s - %s 추가됨" % (x, y)
+
 		# If I'm tagged
 		elif msg.startswith(self.nickname + ":"):
 			reply = u"%s: :D" % user
@@ -197,6 +223,9 @@ if __name__ == '__main__':
 
 	# connect factory to this host and port
 	reactor.connectTCP("irc.ozinger.org", 6667, f)
+
+	# initialize dictionary
+	dictionary.init_translations()
 
 	# run bot
 	reactor.run()
