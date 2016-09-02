@@ -27,10 +27,11 @@ def get_translations(word):
 		depth = Depths[cur_word]
 		if depth & 1 == 0:
 			ret.append(cur_word)
-		for next_word in Words[cur_word]:
-			if next_word not in Depths:
-				Stack.append(next_word)
-				Depths[next_word] = depth + 1
+		if cur_word in Words:
+			for next_word in Words[cur_word]:
+				if next_word not in Depths:
+					Stack.append(next_word)
+					Depths[next_word] = depth + 1
 	return ret
 
 def add_translation(x, y, update_db = True):

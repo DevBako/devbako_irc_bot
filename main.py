@@ -142,14 +142,15 @@ class LogBot(irc.IRCClient):
 
 		# 단어 연관
 		elif msg.startswith(u"!단어 "):
-			word = msg.split(u' ',1)[1]
-			reply = u', '.join(dictionary.get_translations(word))
+			reply = u"등록되지 않은 단어입니다"
+			words = dictionary.get_translations(msg.split(u' ',1)[1])
+			if len(words) > 0:
+				reply = u', '.join(words)
 	
 		elif msg.startswith(u"!단어추가 "):
 			words = dictionary.extract_arguments(msg.split(' ',1)[1])
-			if len(words) < 2:
-				reply = u"%s 단어 두 개를 입력하세요" % (user)
-			else:
+			reply = u"%s 단어 두 개를 입력하세요" % (user)
+			if len(words) >= 2:
 				x, y = words[0], words[1]
 				dictionary.add_translation(x, y)
 				reply = u"%s - %s 추가됨" % (x, y)
