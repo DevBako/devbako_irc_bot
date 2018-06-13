@@ -14,6 +14,10 @@ import requests
 import re, json
 from lxml import html
 import dictionary
+import random
+
+import Calculator
+import CurrencyConverter
 
 
 class MessageLogger:
@@ -41,7 +45,7 @@ class LogBot(irc.IRCClient):
 
 	def connectionMade(self):
 		irc.IRCClient.connectionMade(self)
-		self.logger = MessageLogger(open(self.factory.filename, "a", encoding='utf-8'))
+		self.logger = MessageLogger(open(self.factory.filename, "a"))
 		self.logger.log("[connected at %s]" %
 						time.asctime(time.localtime(time.time())))
 
@@ -67,25 +71,22 @@ class LogBot(irc.IRCClient):
 		user = user.split('!', 1)[0]
 		self.logger.log("<%s> %s" % (user, msg))
 
-
 		# Check to see if they're sending me a private message
 		if channel == self.nickname:
 			reply = "It isn't nice to whisper!  Play nice with the group."
 			self.msg(user, reply)
 			return
 
-		print (msg.split(' '))
-		reply = ''
-		# cheesemochi!!
-		if msg.startswith("!치즈"):
-			reply = "모치!"
+		reply = u''
+		if False:
+			pass
 
 		# Use dictionary
-		elif msg.startswith("!사전"):
+		elif msg.startswith(u"!사전"):
 			url = 'https://glosbe.com/gapi/translate'
 			phrase = msg.split(' ')[1]
 			if len(phrase) == 0:
-				reply = "%s: 단어를 입력해주세요. (사용법 : !사전 [단어])" % (user)
+				reply = u"%s: 단어를 입력해주세요. (사용법 : !사전 [단어])" % (user)
 			else :
 				phraes = phrase.lower()
 				iseng = True
@@ -100,30 +101,30 @@ class LogBot(irc.IRCClient):
 				j = json.loads(res.content)
 				meanings = ', '.join(map(lambda x: x['text'], filter(lambda x: x, map(lambda x: x.get('phrase'), j['tuc']))))
 				if j['result'] != 'ok' or len(meanings) == 0:
-					reply = "%s: 찾을 수 없는 단어입니다: %s" % (user, phrase)
+					reply = u"%s: 찾을 수 없는 단어입니다: %s" % (user, phrase)
 				else :
-					reply = "%s: %s" % (user, meanings)
+					reply = u"%s: %s" % (user, meanings)
 			if len(reply) > 512:
 				reply = reply[:509] + "..."
 
+		elif CurrencyConverter.validate(msg):
+			amount, fr, to = msg.split(' ')
+			amount = int(amount)
+			fr = fr.upper()
+			to = to.upper()
+			reply = '{} {}'.format(CurrencyConverter.convert(amount, fr, to), to)
+
 		# Square number
-		elif msg.isdigit():
-			reply = str(int(msg)**2)
+		elif Calculator.validate(msg):
+			reply = str(Calculator.evaluate(msg))
 
 		# 삼겹살!
-		elif "밥" in msg and "뭐" in msg and "먹" in msg:
-			reply = "%s: 삼겹살!" % (user)
-
-		# 설레발 금지
-		elif "설레발" in msg and msg.startswith(self.nickname):
-			reply = "%s " % (user) + "설레발 금지 "*20
-
-		# 고만해ㅋㅋㅋ
-		elif "!고만해" in msg:
-			reply = "%s 고만혀 고만혀 ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ" % (user)
+		elif (u"밥" in msg or u"저녁" in msg or u"점심" in msg) and u"뭐" in msg and u"먹" in msg:
+			Bobs = [u"삼겹살", u"치킨", u"스시", u"밥"]
+			reply = u"%s: %s" % (user, random.choice(Bobs))
 
 		# Preview BOJ
-		elif "acmicpc.net/problem" in msg:
+		elif u"acmicpc.net/problem" in msg:
 			url = 'https://www.' + re.search('acmicpc.net/problem/[0-9]+', msg).group(0)
 			page = requests.get(url)
 			tree = html.fromstring(page.content)
@@ -134,42 +135,37 @@ class LogBot(irc.IRCClient):
 				reply = reply[:509] + "..."
 
 		# 가챠
-		elif "가챠" in msg and "후레" not in msg and user.lower() == 'shimika':
-			reply = "%s : 175만원" % (user)
+		elif u"가챠" in msg and u"후레" not in msg and user.lower() == 'shimika':
+			reply = u"%s : 175만원" % (user)
 
-		elif msg.startswith("!가챠"):
-			reply = "%s : 175만원" % (user)
-
-		elif msg.startswith("제조"):
-			reply = "%s : 우중비모" % (user)
-			if user.lower() == 'shimika':
-				reply += " http://d.uu.gl/d/k8vnmisi.jpg"
+		elif msg.startswith(u"!가챠"):
+			reply = u"%s : http://d.uu.gl/d/pd5rbsemky.png" % (user)
 
 		# 단어 연관
-		elif msg.startswith("!단어 "):
-			reply = "등록되지 않은 단어입니다"
-			words = dictionary.get_translations(msg.split(' ',1)[1])
+		elif msg.startswith(u"!단어 "):
+			reply = u"등록되지 않은 단어입니다"
+			words = dictionary.get_translations(msg.split(u' ',1)[1])
 			if len(words) > 0:
-				reply = ', '.join(words)
+				reply = u', '.join(words)
 
-		elif msg.startswith("!단어추가 "):
+		elif msg.startswith(u"!단어추가 "):
 			words = dictionary.extract_arguments(msg.split(' ',1)[1])
-			reply = "%s 단어 두 개를 입력하세요" % (user)
+			reply = u"%s 단어 두 개를 입력하세요" % (user)
 			if len(words) >= 2:
 				x, y = words[0], words[1]
 				dictionary.add_translation(x, y)
-				reply = "%s - %s 추가됨" % (x, y)
+				reply = u"%s - %s 추가됨" % (x, y)
 
 		# If I'm tagged
 		elif msg.startswith(self.nickname + ":"):
-			reply = "%s: :D" % user
+			reply = u"%s: Good Luck" % user
+
 
 		# Marshall reply
 		if type(reply) != type(''):
 			reply = reply.encode('utf-8')
 		self.msg(channel, reply)
-		if len (reply) == 0:
-			self.logger.log("<%s> %s" % (self.nickname, reply))
+		self.logger.log("<%s> %s" % (self.nickname, reply))
 
 
 	def action(self, user, channel, msg):
@@ -178,6 +174,7 @@ class LogBot(irc.IRCClient):
 		self.logger.log("* %s %s" % (user, msg))
 
 	# irc callbacks
+
 	def irc_NICK(self, prefix, params):
 		"""Called when an IRC user changes their nickname."""
 		old_nick = prefix.split('!')[0]
@@ -216,7 +213,7 @@ class LogBotFactory(protocol.ClientFactory):
 		connector.connect()
 
 	def clientConnectionFailed(self, connector, reason):
-		print("connection failed:", reason)
+		print ("connection failed:", reason)
 		reactor.stop()
 
 
